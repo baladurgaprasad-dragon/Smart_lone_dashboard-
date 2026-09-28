@@ -1,133 +1,79 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import tkinter as tk
-from tkinter import ttk
+import streamlit as st
 
 # =====================================================
-# LOAD + CLEAN DATA
+# PAGE CONFIG
 # =====================================================
 
-df = pd.read_csv("loan_prediction.csv")
-
-num = ["ApplicantIncome", "CoapplicantIncome",
-       "LoanAmount", "Loan_Amount_Term", "Credit_History"]
-
-cat = ["Gender", "Married", "Dependents",
-       "Education", "Self_Employed", "Property_Area"]
-
-for c in num:
-    df[c] = pd.to_numeric(df[c], errors="coerce")
-    df[c] = df[c].fillna(df[c].median())
-
-for c in cat:
-    df[c] = df[c].fillna("Unknown")
-
-df = df.drop_duplicates(subset="Loan_ID")
-
-df["TotalIncome"] = df["ApplicantIncome"] + df["CoapplicantIncome"]
-df["LoanAmountRupees"] = df["LoanAmount"] * 1000
-df["Outcome"] = df["Loan_Status"].map({"Y": "Approved", "N": "Not Approved"})
-
-total = len(df)
-approved = (df.Loan_Status == "Y").sum()
-rejected = (df.Loan_Status == "N").sum()
-rate = approved / total * 100
-
-print("\nSMART LOAN APPROVAL & RISK ANALYSIS")
-print("=" * 50)
-print("Dataset loaded:", total, "applications")
-print("Approved:", approved)
-print("Not Approved:", rejected)
-print("Approval Rate:", round(rate, 2), "%")
-
+st.set_page_config(
+    page_title="Smart Loan Approval & Risk Analysis",
+    page_icon="🏦",
+    layout="wide"
+)
 
 # =====================================================
 # COLORS
 # =====================================================
 
-BG = "#F4F7FB"
-BLUE = "#2563EB"
-GREEN = "#16A34A"
-RED = "#DC2626"
+BG     = "#F4F7FB"
+BLUE   = "#2563EB"
+GREEN  = "#16A34A"
+RED    = "#DC2626"
 ORANGE = "#EA580C"
 PURPLE = "#7C3AED"
-WHITE = "#FFFFFF"
-DARK = "#172033"
-
+WHITE  = "#FFFFFF"
+DARK   = "#172033"
 
 # =====================================================
-# DASHBOARD
+# LOAD + CLEAN DATA
 # =====================================================
 
-def dashboard():
+@st.cache_data
+def load_data():
+    df = pd.read_csv("loan_prediction.csv")
 
-    fig = plt.figure(figsize=(12, 8), facecolor=BG)
-    fig.canvas.manager.set_window_title("Smart Loan - Dashboard")
+    num = ["ApplicantIncome", "CoapplicantIncome",
+           "LoanAmount", "Loan_Amount_Term", "Credit_History"]
+    cat = ["Gender", "Married", "Dependents",
+           "Education", "Self_Employed", "Property_Area"]
 
-    fig.suptitle(
-        "SMART LOAN APPROVAL & RISK ANALYSIS",
-        fontsize=20, fontweight="bold", color=DARK
-    )
+    for c in num:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+        df[c] = df[c].fillna(df[c].median())
 
-    cards = [
-        ("TOTAL APPLICATIONS", total, "#DBEAFE"),
-        ("APPROVED", approved, "#DCFCE7"),
-        ("NOT APPROVED", rejected, "#FEE2E2"),
-        ("APPROVAL RATE", f"{rate:.1f}%", "#FEF3C7")
-    ]
+    for c in cat:
+        df[c] = df[c].fillna("Unknown")
 
-    for i, (title, value, color) in enumerate(cards):
-        ax = fig.add_axes([.04+i*.24, .75, .21, .12])
-        ax.set_facecolor(color)
-        ax.axis("off")
-        ax.text(.5, .5, f"{title}\n{value}",
-                ha="center", va="center",
-                fontsize=14, fontweight="bold", color=DARK)
+    df = df.drop_duplicates(subset="Loan_ID")
+    df["TotalIncome"]       = df["ApplicantIncome"] + df["CoapplicantIncome"]
+    df["LoanAmountRupees"]  = df["LoanAmount"] * 1000
+    df["Outcome"]           = df["Loan_Status"].map({"Y": "Approved", "N": "Not Approved"})
+    return df
 
-    ax = fig.add_axes([.07, .40, .38, .27])
-    ax.pie(
-        [approved, rejected],
-        labels=["Approved", "Not Approved"],
-        autopct="%1.1f%%",
-        colors=[GREEN, RED],
-        startangle=90
-    )
-    ax.set_title("Loan Application Status", color=DARK)
+df      = load_data()
+total   = len(df)
+approved = (df.Loan_Status == "Y").sum()
+rejected = (df.Loan_Status == "N").sum()
+rate    = approved / total * 100
 
-    ax = fig.add_axes([.55, .40, .38, .27])
-    ax.scatter(
-        df.TotalIncome,
-        df.LoanAmount,
-        alpha=.6,
-        color=BLUE
-    )
-    ax.set_title("Income vs Loan Amount")
-    ax.set_xlabel("Total Income")
-    ax.set_ylabel("Loan Amount")
+# =====================================================
+# SIDEBAR NAVIGATION
+# =====================================================
 
-    ax = fig.add_axes([.07, .07, .38, .24])
-    df.Property_Area.value_counts().plot(
-        kind="bar", ax=ax, color=PURPLE
-    )
-    ax.set_title("Applications by Property Area")
-
-    ax = fig.add_axes([.55, .07, .38, .24])
-    df.Education.value_counts().plot(
-        kind="bar", ax=ax, color=ORANGE
-    )
-    ax.set_title("Applications by Education")
-
-    plt.show()
-
+st.sidebar.title("🏦 Smart Loan")
+page = st.sidebar.radio(
+    "Navigate",
+    ["📊 Dashboard", "✅ Eligibility Checker",
+     "📈 Analytics", "🔍 Explore Data", "ℹ️ About"]
+)
 
 # =====================================================
 # ELIGIBILITY LOGIC
 # =====================================================
 
-def check_eligibility(income, co_income, loan,
-                      education, self_employed, credit):
-
+def check_eligibility(income, co_income, loan, education, self_employed, credit):
     score = 0
 
     if income >= 25000:
@@ -161,243 +107,204 @@ def check_eligibility(income, co_income, loan,
 
     return score, ratio, result
 
+# =====================================================
+# PAGE: DASHBOARD
+# =====================================================
+
+if page == "📊 Dashboard":
+
+    st.title("📊 Smart Loan Approval & Risk Analysis")
+    st.markdown("---")
+
+    # KPI Cards
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("📋 Total Applications", total)
+    col2.metric("✅ Approved",            approved)
+    col3.metric("❌ Not Approved",        rejected)
+    col4.metric("📈 Approval Rate",       f"{rate:.1f}%")
+
+    st.markdown("---")
+
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("Loan Application Status")
+        fig, ax = plt.subplots(figsize=(5, 4))
+        ax.pie(
+            [approved, rejected],
+            labels=["Approved", "Not Approved"],
+            autopct="%1.1f%%",
+            colors=[GREEN, RED],
+            startangle=90
+        )
+        st.pyplot(fig)
+        plt.close(fig)
+
+    with col_right:
+        st.subheader("Income vs Loan Amount")
+        fig, ax = plt.subplots(figsize=(5, 4))
+        ax.scatter(df.TotalIncome, df.LoanAmount, alpha=0.6, color=BLUE)
+        ax.set_xlabel("Total Income")
+        ax.set_ylabel("Loan Amount")
+        st.pyplot(fig)
+        plt.close(fig)
+
+    col_left2, col_right2 = st.columns(2)
+
+    with col_left2:
+        st.subheader("Applications by Property Area")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        df.Property_Area.value_counts().plot(kind="bar", ax=ax, color=PURPLE)
+        ax.set_xlabel("")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+    with col_right2:
+        st.subheader("Applications by Education")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        df.Education.value_counts().plot(kind="bar", ax=ax, color=ORANGE)
+        ax.set_xlabel("")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
 # =====================================================
-# ELIGIBILITY CHECKER
+# PAGE: ELIGIBILITY CHECKER
 # =====================================================
 
-def eligibility_checker():
+elif page == "✅ Eligibility Checker":
 
-    root = tk.Tk()
-    root.title("Smart Loan - Eligibility Checker")
-    root.geometry("650x600")
-    root.configure(bg=BG)
+    st.title("✅ Loan Eligibility Checker")
+    st.markdown("---")
 
-    tk.Label(
-        root,
-        text="LOAN ELIGIBILITY CHECKER",
-        font=("Arial", 20, "bold"),
-        bg=BLUE,
-        fg=WHITE,
-        pady=12
-    ).pack(fill="x")
+    with st.form("eligibility_form"):
+        name       = st.text_input("Applicant Name")
+        income     = st.number_input("Monthly Income (₹)", min_value=0, step=1000)
+        co_income  = st.number_input("Co-applicant Income (₹)", min_value=0, step=1000)
+        loan       = st.number_input("Loan Amount (₹)", min_value=0, step=10000)
+        education  = st.selectbox("Education", ["Graduate", "Not Graduate"])
+        self_emp   = st.selectbox("Self Employed", ["No", "Yes"])
+        credit     = st.selectbox("Credit History", ["Good", "Poor"])
+        submitted  = st.form_submit_button("🔍 Check Eligibility")
 
-    frame = tk.Frame(root, bg=BG)
-    frame.pack(pady=20)
-
-    def add_label(text, row):
-        tk.Label(
-            frame, text=text,
-            font=("Arial", 11, "bold"),
-            bg=BG, fg=DARK
-        ).grid(row=row, column=0, sticky="w", pady=8)
-
-    add_label("Applicant Name", 0)
-    name = tk.Entry(frame, width=32)
-    name.grid(row=0, column=1)
-
-    add_label("Monthly Income", 1)
-    income = tk.Entry(frame, width=32)
-    income.grid(row=1, column=1)
-
-    add_label("Co-applicant Income", 2)
-    co_income = tk.Entry(frame, width=32)
-    co_income.grid(row=2, column=1)
-
-    add_label("Loan Amount", 3)
-    loan = tk.Entry(frame, width=32)
-    loan.grid(row=3, column=1)
-
-    add_label("Education", 4)
-    edu = ttk.Combobox(
-        frame, values=["Graduate", "Not Graduate"],
-        state="readonly", width=29
-    )
-    edu.set("Graduate")
-    edu.grid(row=4, column=1)
-
-    add_label("Self Employed", 5)
-    self_emp = ttk.Combobox(
-        frame, values=["Yes", "No"],
-        state="readonly", width=29
-    )
-    self_emp.set("No")
-    self_emp.grid(row=5, column=1)
-
-    add_label("Credit History", 6)
-    credit = ttk.Combobox(
-        frame, values=["Good", "Poor"],
-        state="readonly", width=29
-    )
-    credit.set("Good")
-    credit.grid(row=6, column=1)
-
-    result = tk.Label(
-        root,
-        text="",
-        font=("Arial", 13, "bold"),
-        bg=BG,
-        fg=DARK,
-        justify="center"
-    )
-    result.pack(pady=15)
-
-    def calculate():
-
-        try:
+    if submitted:
+        if income == 0 and loan == 0:
+            st.warning("⚠️ Please enter valid income and loan amounts.")
+        else:
             score, ratio, status = check_eligibility(
-                float(income.get()),
-                float(co_income.get()),
-                float(loan.get()),
-                edu.get(),
-                self_emp.get(),
-                credit.get()
+                income, co_income, loan, education, self_emp, credit
             )
 
-            colors = {
-                "ELIGIBLE": GREEN,
-                "MANUAL REVIEW": ORANGE,
-                "NOT ELIGIBLE": RED
+            color_map = {
+                "ELIGIBLE":      "success",
+                "MANUAL REVIEW": "warning",
+                "NOT ELIGIBLE":  "error"
+            }
+            icon_map = {
+                "ELIGIBLE":      "✅",
+                "MANUAL REVIEW": "⚠️",
+                "NOT ELIGIBLE":  "❌"
             }
 
-            result.config(
-                text=f"Applicant: {name.get()}\n"
-                     f"Risk Score: {score}/100\n"
-                     f"Loan Ratio: {ratio:.2f}\n"
-                     f"FINAL RESULT: {status}",
-                bg=colors[status],
-                fg=WHITE,
-                padx=20,
-                pady=10
+            msg = (
+                f"**Applicant:** {name or 'N/A'}  \n"
+                f"**Risk Score:** {score}/100  \n"
+                f"**Loan-to-Income Ratio:** {ratio:.2f}  \n"
+                f"**Final Result:** {icon_map[status]} {status}"
             )
 
-        except ValueError:
-            result.config(
-                text="⚠ Please enter valid numeric values!",
-                bg=RED,
-                fg=WHITE,
-                padx=20,
-                pady=10
-            )
-
-    tk.Button(
-        root,
-        text="CHECK ELIGIBILITY",
-        command=calculate,
-        font=("Arial", 12, "bold"),
-        bg=BLUE,
-        fg=WHITE,
-        activebackground=PURPLE,
-        activeforeground=WHITE,
-        padx=25,
-        pady=8
-    ).pack()
-
-    root.mainloop()
-
+            if status == "ELIGIBLE":
+                st.success(msg)
+            elif status == "MANUAL REVIEW":
+                st.warning(msg)
+            else:
+                st.error(msg)
 
 # =====================================================
-# ANALYTICS
+# PAGE: ANALYTICS
 # =====================================================
 
-def analytics():
+elif page == "📈 Analytics":
 
-    fig, ax = plt.subplots(2, 2, figsize=(12, 8))
-    fig.suptitle(
-        "LOAN ANALYTICS",
-        fontsize=20,
-        fontweight="bold",
-        color=DARK
-    )
+    st.title("📈 Loan Analytics")
+    st.markdown("---")
 
-    ax[0,0].hist(
-        df.ApplicantIncome,
-        bins=20,
-        color=BLUE
-    )
-    ax[0,0].set_title("Applicant Income")
+    col1, col2 = st.columns(2)
 
-    df.Credit_History.value_counts().plot(
-        kind="bar",
-        ax=ax[0,1],
-        color=GREEN
-    )
-    ax[0,1].set_title("Credit History")
+    with col1:
+        st.subheader("Applicant Income Distribution")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        ax.hist(df.ApplicantIncome, bins=20, color=BLUE)
+        ax.set_xlabel("Income")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
-    ax[1,0].hist(
-        df.LoanAmount,
-        bins=20,
-        color=PURPLE
-    )
-    ax[1,0].set_title("Loan Amount")
+    with col2:
+        st.subheader("Credit History")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        df.Credit_History.value_counts().plot(kind="bar", ax=ax, color=GREEN)
+        ax.set_xlabel("")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
-    df.Property_Area.value_counts().plot(
-        kind="bar",
-        ax=ax[1,1],
-        color=ORANGE
-    )
-    ax[1,1].set_title("Property Area")
+    col3, col4 = st.columns(2)
 
-    plt.tight_layout()
-    plt.show()
+    with col3:
+        st.subheader("Loan Amount Distribution")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        ax.hist(df.LoanAmount, bins=20, color=PURPLE)
+        ax.set_xlabel("Loan Amount")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
+    with col4:
+        st.subheader("Property Area")
+        fig, ax = plt.subplots(figsize=(5, 3))
+        df.Property_Area.value_counts().plot(kind="bar", ax=ax, color=ORANGE)
+        ax.set_xlabel("")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
 # =====================================================
-# EXPLORE DATA
+# PAGE: EXPLORE DATA
 # =====================================================
 
-def explore_data():
+elif page == "🔍 Explore Data":
 
-    root = tk.Tk()
-    root.title("Smart Loan - Explore Data")
-    root.geometry("1250x700")
-    root.configure(bg=BG)
+    st.title("🔍 Explore Loan Data")
+    st.markdown("---")
 
-    tk.Label(
-        root,
-        text="EXPLORE LOAN DATA",
-        font=("Arial", 20, "bold"),
-        bg=BLUE,
-        fg=WHITE,
-        pady=10
-    ).pack(fill="x")
-
-    filters = tk.Frame(root, bg=BG)
-    filters.pack(pady=10)
-
-    def combo(text, values):
-        tk.Label(
-            filters,
-            text=text,
-            bg=BG,
-            fg=DARK,
-            font=("Arial", 10, "bold")
-        ).pack(side="left", padx=5)
-
-        box = ttk.Combobox(
-            filters,
-            values=values,
-            state="readonly",
-            width=15
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        status_filter = st.selectbox(
+            "Status", ["All", "Approved", "Not Approved"]
         )
-        box.set("All")
-        box.pack(side="left", padx=8)
-        return box
+    with col2:
+        edu_filter = st.selectbox(
+            "Education", ["All", "Graduate", "Not Graduate"]
+        )
+    with col3:
+        area_filter = st.selectbox(
+            "Property Area", ["All", "Urban", "Semiurban", "Rural"]
+        )
 
-    status = combo(
-        "Status:",
-        ["All", "Approved", "Not Approved"]
-    )
+    filtered = df.copy()
 
-    education = combo(
-        "Education:",
-        ["All", "Graduate", "Not Graduate"]
-    )
+    if status_filter == "Approved":
+        filtered = filtered[filtered.Loan_Status == "Y"]
+    elif status_filter == "Not Approved":
+        filtered = filtered[filtered.Loan_Status == "N"]
 
-    property_area = combo(
-        "Property:",
-        ["All", "Urban", "Semiurban", "Rural"]
-    )
+    if edu_filter != "All":
+        filtered = filtered[filtered.Education == edu_filter]
+
+    if area_filter != "All":
+        filtered = filtered[filtered.Property_Area == area_filter]
 
     columns = [
         "Loan_ID", "Gender", "Education",
@@ -406,217 +313,50 @@ def explore_data():
         "Property_Area", "Loan_Status"
     ]
 
-    frame = tk.Frame(root)
-    frame.pack(fill="both", expand=True, padx=15)
-
-    tree = ttk.Treeview(
-        frame,
-        columns=columns,
-        show="headings"
+    st.markdown(
+        f"**Showing {len(filtered)} of {total} applications**"
     )
-
-    for col in columns:
-        tree.heading(col, text=col)
-        tree.column(col, width=130, anchor="center")
-
-    scroll_y = ttk.Scrollbar(
-        frame, orient="vertical",
-        command=tree.yview
-    )
-
-    scroll_x = ttk.Scrollbar(
-        frame, orient="horizontal",
-        command=tree.xview
-    )
-
-    tree.configure(
-        yscrollcommand=scroll_y.set,
-        xscrollcommand=scroll_x.set
-    )
-
-    tree.grid(row=0, column=0, sticky="nsew")
-    scroll_y.grid(row=0, column=1, sticky="ns")
-    scroll_x.grid(row=1, column=0, sticky="ew")
-
-    frame.grid_rowconfigure(0, weight=1)
-    frame.grid_columnconfigure(0, weight=1)
-
-    # Row colors
-    tree.tag_configure(
-        "approved",
-        background="#DCFCE7"
-    )
-
-    tree.tag_configure(
-        "rejected",
-        background="#FEE2E2"
-    )
-
-    def display():
-
-        filtered = df.copy()
-
-        if status.get() == "Approved":
-            filtered = filtered[filtered.Loan_Status == "Y"]
-
-        elif status.get() == "Not Approved":
-            filtered = filtered[filtered.Loan_Status == "N"]
-
-        if education.get() != "All":
-            filtered = filtered[
-                filtered.Education == education.get()
-            ]
-
-        if property_area.get() != "All":
-            filtered = filtered[
-                filtered.Property_Area == property_area.get()
-            ]
-
-        tree.delete(*tree.get_children())
-
-        for _, row in filtered.iterrows():
-
-            tag = (
-                "approved"
-                if row.Loan_Status == "Y"
-                else "rejected"
-            )
-
-            tree.insert(
-                "",
-                "end",
-                values=[row[c] for c in columns],
-                tags=(tag,)
-            )
-
-        count.config(
-            text=f"Showing {len(filtered)} of {len(df)} applications"
-        )
-
-    count = tk.Label(
-        root,
-        text="",
-        font=("Arial", 11, "bold"),
-        bg=BG,
-        fg=BLUE
-    )
-    count.pack(pady=7)
-
-    for box in [status, education, property_area]:
-        box.bind(
-            "<<ComboboxSelected>>",
-            lambda e: display()
-        )
-
-    display()
-    root.mainloop()
-
+    st.dataframe(filtered[columns], use_container_width=True)
 
 # =====================================================
-# ABOUT
+# PAGE: ABOUT
 # =====================================================
 
-def about_project():
+elif page == "ℹ️ About":
 
-    root = tk.Tk()
-    root.title("About Smart Loan")
-    root.geometry("650x550")
-    root.configure(bg=BG)
+    st.title("ℹ️ About Smart Loan")
+    st.markdown("---")
 
-    tk.Label(
-        root,
-        text="SMART LOAN APPROVAL & RISK ANALYSIS",
-        font=("Arial", 18, "bold"),
-        bg=BLUE,
-        fg=WHITE,
-        pady=15
-    ).pack(fill="x")
+    st.markdown("""
+    ## 🎯 Project Objective
+    Analyze loan applications and provide a simple eligibility decision.
 
-    text = """
-PROJECT OBJECTIVE
+    ## 🛠️ Technologies
+    - **Python**
+    - **Pandas**
+    - **NumPy**
+    - **Matplotlib**
+    - **Streamlit**
 
-Analyze loan applications and provide
-a simple eligibility decision.
+    ## 📊 Dataset
+    - Loan Prediction Dataset
+    - 614 Applications
 
-TECHNOLOGIES
+    ## 🔑 Main Features
+    | Feature | Description |
+    |---|---|
+    | Applicant Income | Monthly income of the applicant |
+    | Co-applicant Income | Monthly income of the co-applicant |
+    | Loan Amount | Requested loan amount |
+    | Credit History | Good / Poor credit history |
+    | Education | Graduate / Not Graduate |
+    | Property Area | Urban / Semiurban / Rural |
+    | Loan Status | Approved (Y) / Not Approved (N) |
 
-• Python
-• Pandas
-• NumPy
-• Matplotlib
-• Tkinter
-
-DATASET
-
-Loan Prediction Dataset
-614 Applications
-
-MAIN FEATURES
-
-• Applicant Income
-• Co-applicant Income
-• Loan Amount
-• Credit History
-• Education
-• Property Area
-• Loan Status
-
-OUTPUT
-
-• ELIGIBLE
-• MANUAL REVIEW
-• NOT ELIGIBLE
-"""
-
-    tk.Label(
-        root,
-        text=text,
-        font=("Arial", 12),
-        bg=BG,
-        fg=DARK,
-        justify="left"
-    ).pack(pady=25)
-
-    root.mainloop()
-
-
-# =====================================================
-# MAIN MENU
-# =====================================================
-
-while True:
-
-    print("\n" + "="*50)
-    print("SMART LOAN APPROVAL & RISK ANALYSIS")
-    print("="*50)
-
-    print("1. Dashboard")
-    print("2. Eligibility Checker")
-    print("3. Analytics")
-    print("4. Explore Data")
-    print("5. About Project")
-    print("6. Exit")
-
-    choice = input("\nEnter choice (1-6): ")
-
-    if choice == "1":
-        dashboard()
-
-    elif choice == "2":
-        eligibility_checker()
-
-    elif choice == "3":
-        analytics()
-
-    elif choice == "4":
-        explore_data()
-
-    elif choice == "5":
-        about_project()
-
-    elif choice == "6":
-        print("\nThank you!")
-        break
-
-    else:
-        print("Invalid choice!")
+    ## 📋 Output
+    | Result | Condition |
+    |---|---|
+    | ✅ ELIGIBLE | Score ≥ 70 |
+    | ⚠️ MANUAL REVIEW | Score 50–69 |
+    | ❌ NOT ELIGIBLE | Score < 50 |
+    """)
