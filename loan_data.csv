@@ -1,0 +1,8 @@
+Name,Age,MonthlyIncome,BankBalance,LoanAmount,ExistingLoan,Employment,CreditScore,Eligibility
+Ravi,25,30000,80000,300000,No,Salaried,710,Eligible
+Priya,32,50000,150000,500000,No,Salaried,760,Eligible
+Arjun,28,20000,30000,600000,Yes,Self-employed,620,Not Eligible
+Suresh,41,70000,200000,800000,No,Business,780,Eligible
+Anitha,23,28000,60000,250000,No,Salaried,680,Eligible
+Kiran,35,40000,45000,400000,No,Salaried,640,Not Eligible
+balu,25,30000,80000,300000,No,Salaried,700,Eligible
